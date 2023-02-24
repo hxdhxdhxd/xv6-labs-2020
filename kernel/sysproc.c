@@ -95,3 +95,32 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_trace(void){
+  int n;
+  if(argint(0,&n)){
+    return -1;
+  }
+  myproc()->mask = n;
+  return 0;
+}
+
+struct sysinfo{
+  uint64 freemem;
+  uint64 nproc;
+};
+
+uint64
+sys_sysinfo(void){
+  struct proc *p = myproc();
+  uint64 addr;
+  if(argaddr(0, &addr) < 0)
+  return -1;
+  struct sysinfo sinfo;
+  sinfo.freemem = freememorycount();
+  sinfo.nproc = proccount();
+  if(copyout(p->pagetable, addr, (char *)&sinfo, sizeof(sinfo)) < 0)
+    return -1;
+  return 0;  
+}
