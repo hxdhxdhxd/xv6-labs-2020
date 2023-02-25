@@ -44,6 +44,24 @@ procinit(void)
   kvminithart();
 }
 
+//void
+//proc_freekernelpt(pagetable_t kernelpt)
+//{
+  // similar to the freewalk method
+  // there are 2^9 = 512 PTEs in a page table.
+//  for(int i = 0; i < 512; i++){
+//    pte_t pte = kernelpt[i];
+//    if(pte & PTE_V){
+//      kernelpt[i] = 0;
+//      if ((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+//        uint64 child = PTE2PA(pte);
+//        proc_freekernelpt((pagetable_t)child);
+//      }
+//    }
+//  }
+//  kfree((void*)kernelpt);
+//}
+
 // Must be called with interrupts disabled,
 // to prevent race with process being moved
 // to a different CPU.
@@ -121,6 +139,22 @@ found:
     return 0;
   }
 
+  // 创建内核页表副本
+  p->kernel_pt = prockpt_init();
+  if(p->kernel_pt == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  
+  char *pa = kalloc();
+  if(pa == 0){
+    panic("kalloc");
+  }
+  uint64 va = KSTACK((int) (p - proc));
+  uvmmap(p->kernel_pt, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+  p->kstack = va;
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -128,6 +162,25 @@ found:
   p->context.sp = p->kstack + PGSIZE;
 
   return p;
+}
+
+
+void
+proc_freekernelpt(pagetable_t kernelpt)
+{
+  // similar to the freewalk method
+  // there are 2^9 = 512 PTEs in a page table.
+  for(int i = 0; i < 512; i++){
+    pte_t pte = kernelpt[i];
+    if(pte & PTE_V){
+      kernelpt[i] = 0;
+      if ((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+        uint64 child = PTE2PA(pte);
+        proc_freekernelpt((pagetable_t)child);
+      }
+    }
+  }
+  kfree((void*)kernelpt);
 }
 
 // free a proc structure and the data hanging from it,
@@ -141,6 +194,17 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+  //释放内核进程
+  //if(p->kernel_pt){
+  uvmunmap(p->kernel_pt, p->kstack, 1, 1);
+  p->kstack = 0;
+  proc_freekernelpt(p->kernel_pt);
+  //}
+  //p->kernel_pt = 0;
+  //uvmunmap(p->kernel_pt, p->kstack, 1, 1);
+  //p->kstack = 0;
+  //proc_freekernelpt(p->kernel_pt);
+
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -473,7 +537,13 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+	      proc_inithart(p->kernel_pt);
+	      //vmprint(p->kernel_pt,0);
+
         swtch(&c->context, &p->context);
+
+	      kvminithart();//转回原内核页表
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
