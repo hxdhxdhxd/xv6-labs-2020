@@ -114,13 +114,13 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     if(*pte & PTE_V) { //表示有效位有用
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
-      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0) //!alloc为1的话后面不用看了直接返回0，若为0则开始分配内存并设置为0然后写入页表
         return 0;
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
-  return &pagetable[PX(0, va)];
+  return &pagetable[PX(0, va)];  //返回在页表找到的对应PTE值，走else的话就是创建的了新映射
 }
 
 // Look up a virtual address, return the physical address,
@@ -187,14 +187,14 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   uint64 a, last;
   pte_t *pte;
 
-  a = PGROUNDDOWN(va);
+  a = PGROUNDDOWN(va);  //这一步虚拟地址的后12位全部设置为了0，也就是找页了
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
+    if((pte = walk(pagetable, a, 1)) == 0) //最后一位位1，则会创建页表
       return -1;
     if(*pte & PTE_V)
       panic("remap");
-    *pte = PA2PTE(pa) | perm | PTE_V;
+    *pte = PA2PTE(pa) | perm | PTE_V;  //修改了这个页表指向的地址，并设置位了有效(便可以通过修改页表的虚拟地址来实现直接映射的效果，即恒等映射)
     if(a == last)
       break;
     a += PGSIZE;
