@@ -46,6 +46,7 @@ prockpt_init(void)
   uvmmap(kernelpg, KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
   // map kernel data and the physical RAM we'll make use of.
   uvmmap(kernelpg, (uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W); 
+  uvmmap(kernelpg, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);  //复制时候少了一段
   return kernelpg;
 }
 
