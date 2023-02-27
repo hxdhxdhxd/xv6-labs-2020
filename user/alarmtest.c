@@ -29,6 +29,19 @@ main(int argc, char *argv[])
 
 volatile static int count;
 
+//这是测试函数的传入
+// void
+// pt(int a){
+//   printf("%d\n",a);
+// }
+
+// void
+// t_pt(int times,void (*Func)(int)){
+//   for(int i = 0; i < times; i++){
+//     Func(2);
+//   }
+// }
+
 void
 periodic()
 {
@@ -36,6 +49,15 @@ periodic()
   printf("alarm!\n");
   sigreturn();
 }
+
+//用来测试前面的地址是000是对的吗，这个运行地址是3a
+// void
+// periodic2()
+// {
+//   count = count + 1;
+//   printf("alarm!\n");
+//   sigreturn();
+// }
 
 // tests whether the kernel calls
 // the alarm handler even a single time.

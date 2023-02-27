@@ -113,6 +113,12 @@ found:
     return 0;
   }
 
+  if((p->alarm_trapframe = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -126,7 +132,7 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
-
+  //p->alarm_count = 0;
   return p;
 }
 
@@ -150,6 +156,15 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+
+  if(p->alarm_trapframe){
+    kfree((void *)p->alarm_trapframe);  //回收物理内存
+  }
+  p->alarm_trapframe = 0; //重置内存数据
+  p->is_alarming = 0;
+  p->alarm_interval = 0;
+  p->handler_addr = 0;
+  p->alarm_count = 0;
 }
 
 // Create a user page table for a given process,

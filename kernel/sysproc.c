@@ -96,3 +96,26 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_sigalarm(void)
+{
+  //int n;
+  struct proc *p = myproc();
+  if(argint(0, &p->alarm_interval) < 0 || argaddr(1, (uint64 *)&p->handler_addr) < 0)
+    return -1;
+  if(p->alarm_interval == 0){
+    //printf("input is 0\n");
+    return -1;
+  }
+  //printf("ticks:%d addr:%p\n",p->alarm_interval , p->handler_addr); //地址为何是0？
+  return 0;
+}
+
+uint64
+sys_sigreturn(void)
+{
+  memmove(myproc()->trapframe,myproc()->alarm_trapframe,sizeof(struct trapframe));
+  myproc()->is_alarming = 0;
+  return 0;
+}

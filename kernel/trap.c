@@ -76,9 +76,19 @@ usertrap(void)
   if(p->killed)
     exit(-1);
 
-  // give up the CPU if this is a timer interrupt.
+  // give up the CPU if this is a timer interrupt. 这是操作了系统的滴答函数，这里需要修改
   if(which_dev == 2)
+  {
+    p->alarm_count++;
+    if(p->alarm_count == p->alarm_interval && p->is_alarming == 0){ //判断最后一项是防止多次运行
+      memmove(p->alarm_trapframe, p->trapframe, sizeof(struct trapframe)); //拷贝副本
+      p->trapframe->epc = (uint64)p->handler_addr;
+      p->alarm_count = 0;
+      p->is_alarming = 1;
+    }
     yield();
+  }
+    //yield();
 
   usertrapret();
 }
