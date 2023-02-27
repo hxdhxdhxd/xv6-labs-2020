@@ -132,3 +132,19 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+void 
+backtrace(void)
+{
+  uint64 fp = r_fp();
+  //int i = 5;
+  while(PGROUNDUP(fp) - PGROUNDDOWN(fp) == PGSIZE){
+  //while(i > 0){
+    uint64 addr = *((uint64*)(fp)-1); //强制转换成64位地址值然后取值
+    printf("%p\n",addr);
+    //printf("%p %p\n",PGROUNDUP(fp),PGROUNDDOWN(fp));
+    fp = *((uint64*)(fp)-2);
+    //i--;
+  }
+}
+  
