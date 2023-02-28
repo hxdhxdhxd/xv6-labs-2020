@@ -49,6 +49,10 @@ usertrap(void)
   
   // save user program counter.
   p->trapframe->epc = r_sepc();
+
+
+
+
   
   if(r_scause() == 8){
     // system call
@@ -67,7 +71,23 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  } else if(r_scause() == 13 || r_scause() == 15){//添加分配地址的方法
+    int va = r_stval(); //读取错误用户地址位置
+    char *mem;
+    if(PGROUNDUP(p->trapframe->sp) - 1 >= va || va >= p->sz || (mem = kalloc()) == 0){
+      //无法分配
+      p->killed = 1; //标记杀死进程
+    }
+    else{
+      memset(mem,0,PGSIZE);
+      if(mappages(p->pagetable,PGROUNDDOWN(va),PGSIZE,(uint64)mem,PTE_W|PTE_X|PTE_R|PTE_U) != 0){
+        kfree(mem);
+        printf("map fault");
+        p->killed = 1;
+      }
+    }    
+  }
+  else{
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
