@@ -10,13 +10,32 @@
 #define STACK_SIZE  8192
 #define MAX_THREAD  4
 
+struct tcontext{
+  uint64 ra;  //返回寄存器
+  uint64 sp;  //栈顶指针
+
+  //需要保存和返回的寄存器
+  uint64 s0;
+  uint64 s1;
+  uint64 s2;
+  uint64 s3;
+  uint64 s4;
+  uint64 s5;
+  uint64 s6;
+  uint64 s7;
+  uint64 s8;
+  uint64 s9;
+  uint64 s10;
+  uint64 s12;
+};
 
 struct thread {
-  char       stack[STACK_SIZE]; /* the thread's stack */
+  uint64       stack[STACK_SIZE]; /* the thread's stack */
   int        state;             /* FREE, RUNNING, RUNNABLE */
+  struct tcontext  context;
 
 };
-struct thread all_thread[MAX_THREAD];
+struct thread all_thread[MAX_THREAD]; //标记的是正在CPU上运行的线程
 struct thread *current_thread;
 extern void thread_switch(uint64, uint64);
               
@@ -39,12 +58,12 @@ thread_schedule(void)
 
   /* Find another runnable thread. */
   next_thread = 0;
-  t = current_thread + 1;
+  t = current_thread + 1;  //指向下一个线程
   for(int i = 0; i < MAX_THREAD; i++){
-    if(t >= all_thread + MAX_THREAD)
+    if(t >= all_thread + MAX_THREAD) //用数组构成循环
       t = all_thread;
-    if(t->state == RUNNABLE) {
-      next_thread = t;
+    if(t->state == RUNNABLE) {  //如果为待运行态
+      next_thread = t; //赋值线程，找到了可运行的下一个线程
       break;
     }
     t = t + 1;
@@ -57,12 +76,13 @@ thread_schedule(void)
 
   if (current_thread != next_thread) {         /* switch threads?  */
     next_thread->state = RUNNING;
-    t = current_thread;
-    current_thread = next_thread;
+    t = current_thread;  //t的值为需要换出的线程
+    current_thread = next_thread;  //ct为需要换入的线程
     /* YOUR CODE HERE
      * Invoke thread_switch to switch from t to next_thread:
      * thread_switch(??, ??);
      */
+    thread_switch((uint64)&t->context, (uint64)&current_thread->context);
   } else
     next_thread = 0;
 }
@@ -77,8 +97,12 @@ thread_create(void (*func)())
   }
   t->state = RUNNABLE;
   // YOUR CODE HERE
+  // 1.初始化堆栈 2.确定需要执行的程序
+  t->context.ra = (uint64)func;
+  t->context.sp = (uint64)t->stack + STACK_SIZE; //栈还没有用到，后续用于存储临时变量数据？
+  
 }
-
+//将进程设置位准备实行调度
 void 
 thread_yield(void)
 {

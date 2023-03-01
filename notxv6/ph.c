@@ -13,9 +13,11 @@ struct entry {
   int value;
   struct entry *next;
 };
-struct entry *table[NBUCKET];
+struct entry *table[NBUCKET]; //结构体数组
 int keys[NKEYS];
 int nthread = 1;
+
+pthread_mutex_t lock[NBUCKET] = { PTHREAD_MUTEX_INITIALIZER };
 
 double
 now()
@@ -51,7 +53,9 @@ void put(int key, int value)
     e->value = value;
   } else {
     // the new is new.
+    pthread_mutex_lock(&lock[i]);
     insert(key, value, &table[i], table[i]);
+    pthread_mutex_unlock(&lock[i]);
   }
 }
 
@@ -73,7 +77,7 @@ static void *
 put_thread(void *xa)
 {
   int n = (int) (long) xa; // thread number
-  int b = NKEYS/nthread;
+  int b = NKEYS/nthread;  //按照线程划分数据
 
   for (int i = 0; i < b; i++) {
     put(keys[b*n + i], n);
@@ -83,7 +87,7 @@ put_thread(void *xa)
 }
 
 static void *
-get_thread(void *xa)
+get_thread(void *xa) //两个线程都执行这个程序的话也就会有两个输出
 {
   int n = (int) (long) xa; // thread number
   int missing = 0;
@@ -118,7 +122,7 @@ main(int argc, char *argv[])
   //
   // first the puts
   //
-  t0 = now();
+  t0 = now();//计时
   for(int i = 0; i < nthread; i++) {
     assert(pthread_create(&tha[i], NULL, put_thread, (void *) (long) i) == 0);
   }

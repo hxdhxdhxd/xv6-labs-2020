@@ -7,6 +7,7 @@
 static int nthread = 1;
 static int round = 0;
 
+
 struct barrier {
   pthread_mutex_t barrier_mutex;
   pthread_cond_t barrier_cond;
@@ -26,11 +27,23 @@ static void
 barrier()
 {
   // YOUR CODE HERE
-  //
+  // 
+  pthread_mutex_lock(&bstate.barrier_mutex);
+  bstate.nthread += 1;
+  if(bstate.nthread < nthread) //没达到数目
+    pthread_cond_wait(&bstate.barrier_cond,&bstate.barrier_mutex); //醒来的时候会重新获取锁
+  else{
+    bstate.nthread = 0;  //放在前面好一些
+    bstate.round += 1;
+    pthread_cond_broadcast(&bstate.barrier_cond);
+    // bstate.nthread = 0;
+    // bstate.round += 1;
+  }
+  //printf("%d\n",bstate.round);
+  pthread_mutex_unlock(&bstate.barrier_mutex);
   // Block until all threads have called barrier() and
   // then increment bstate.round.
   //
-  
 }
 
 static void *
