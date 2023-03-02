@@ -21,12 +21,17 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
-} kmem;
+} kmem[NCPU];
 
 void
 kinit()
 {
-  initlock(&kmem.lock, "kmem");
+  char lockname[8];
+  for(int i = 0; i < NCPU; i++){
+    snprintf(lockname, sizeof(lockname), "kmem_%d", i);
+    initlock(&kmem[i].lock, lockname);
+  }
+  // initlock(&kmem.lock, "kmem");
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -56,10 +61,13 @@ kfree(void *pa)
 
   r = (struct run*)pa;
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+  push_off();
+  int id = cpuid();
+  acquire(&kmem[id].lock);
+  r->next = kmem[id].freelist;
+  kmem[id].freelist = r;
+  release(&kmem[id].lock);
+  pop_off();
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -70,12 +78,31 @@ kalloc(void)
 {
   struct run *r;
 
-  acquire(&kmem.lock);
-  r = kmem.freelist;
+  push_off();
+  int id = cpuid();
+  acquire(&kmem[id].lock);
+  r = kmem[id].freelist;
   if(r)
-    kmem.freelist = r->next;
-  release(&kmem.lock);
-
+    kmem[id].freelist = r->next;
+  else{   //空闲列表空了的话，需要去使用别的CPU的空闲列表
+    int next_id;
+    for(next_id = 0; next_id < NCPU; next_id++){ //这种方式所有CPU核空的话都会先去1抢，也存在一些问题
+      if(next_id == id){
+        continue;
+      }
+      acquire(&kmem[next_id].lock);
+      r = kmem[next_id].freelist;
+      if(r){ //抢到了
+        kmem[next_id].freelist = r->next;
+        release(&kmem[next_id].lock);
+        break;
+      }
+      release(&kmem[next_id].lock);
+    }
+  }
+  release(&kmem[id].lock);
+  pop_off();
+  // release(&kmem.lock);
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
